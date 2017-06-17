@@ -1,0 +1,134 @@
+---
+title: 'Peer-graded Assignment: Course Project 1'
+author: "saurabh"
+date: "June 2, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### This document is created as part of the assigment requirements of course reproducible-research- Week 2 Peer-graded Assignment: Course Project 1 .
+
+The [dataset](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip) being used for this assigment is of size 56 kb, and has below listed variables
+
+* steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+* date: The date on which the measurement was taken in YYYY-MM-DD format
+* interval: Identifier for the 5-minute interval in which measurement was taken
+
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
+
+Load the required libraries
+```{r load_libraries}
+library(ggplot2)
+library("lubridate")
+library(scales)
+```
+
+Lets download and unzip the dataset and store into activityData
+
+```{r download_data}
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip", destfile="Factivity.zip")
+unzip("Factivity.zip")
+activityData <- read.csv("activity.csv", sep = ",")
+```
+
+Now, we should get an overview of the available data
+
+```{r data_summary}
+class(activityData)
+dim(activityData)
+str(activityData)
+head(activityData)
+tail(activityData)
+```
+
+
+Lets check the data type for date field
+```{r date_datatype}
+class(activityData$date)
+```
+
+We will now convert factor date field to data class date
+
+```{r convertDate}
+activityData$date <- as.Date(activityData$date, format = "%Y-%m-%d")
+class(activityData$date)
+```
+
+We can now remove the NA values,
+
+```{r rm_NAvalues}
+activityData <- na.omit(activityData)
+```
+
+Now to plot Histogram of the total number of steps taken each day, we will aggregate steps by date, and store the aggreated data in aggdata
+
+```{r aggdata}
+aggdata <- setNames(aggregate(activityData[,1], by=list(activityData$date), FUN=sum, na.rm=TRUE), c("Date", "Sum_steps"))
+head(aggdata)
+tail(aggdata)
+hist(aggdata$Sum_steps, main = "Histogram of the total number of steps taken each day", xlab = "total number of steps taken each day")
+```
+
+Mean and Median of total number of steps taken in each day are:
+
+```{r mean_median}
+mean(aggdata$Sum_steps)
+median(aggdata$Sum_steps)
+```
+
+Time series plot of the average number of steps taken
+
+```{r}
+meandata <- setNames(aggregate(activityData[,1], by=list(activityData$date), FUN=mean, na.rm=TRUE), c("date", "mean_steps"))
+ggplot(meandata, aes(date, mean_steps)) + geom_line() + xlab("") + ylab("Mean daily steps") + ggtitle("Time series plot of the average number of steps taken")
+```
+
+Now to calculate "The 5-minute interval that, on average, contains the maximum number of steps" we fill aggregate mean of activityData by 5 minute interval
+
+```{r}
+meandataall<- setNames(aggregate(activityData[,1], by=list(activityData$interval), FUN=mean, na.rm=TRUE), c("interval","mean_steps"))
+meandataall[which.max(meandataall[,2]),]
+```
+
+From the above output, we can see that interval 835 is having the maximum number os steps.
+
+To answer rest of questions, lets get the initial dataframe with NA values,
+```{r}
+activityData <- read.csv("activity.csv", sep = ",")
+activityData$date <- as.Date(activityData$date, format = "%Y-%m-%d")
+```
+
+Now, we will use Hmisc package and impute to impute missing data with mean value,
+
+```{r}
+library("Hmisc")
+head(activityData)
+activityData$steps <- with(activityData, impute(steps, mean))
+head(activityData)
+```
+
+Now, lets plot Histogram of the total number of steps taken each day after missing values are imputed
+```{r }
+aggdata <- setNames(aggregate(activityData[,1], by=list(activityData$date), FUN=sum, na.rm=TRUE), c("Date", "Sum_steps"))
+head(aggdata)
+tail(aggdata)
+hist(aggdata$Sum_steps, main = "Histogram of the total number of steps taken each day", xlab = "total number of steps taken each day")
+```
+
+Finally, we will Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r}
+meandata <- setNames(aggregate(activityData[,1], by=list(activityData$date), FUN=mean, na.rm=TRUE), c("date", "mean_steps"))
+meandata$day <- wday(meandata$date, label = TRUE)
+meandata$week <- ifelse(weekdays(meandata$date) %in% c("Saturday", "Sunday"), "weekend", "weekday")
+meandata$week <- factor(meandata$week,labels=c("weekday","weekend"))
+class(meandata$week)
+ggplot(meandata, aes(x=date, y=mean_steps, colour=week)) + 
+  geom_path() + 
+  geom_point() + scale_x_date(breaks=date_breaks("1 month")) +
+  facet_grid(week ~.) +
+  theme(legend.position="none")
+```
